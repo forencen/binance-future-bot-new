@@ -6,9 +6,9 @@ from time import sleep
 from binance.error import ClientError
 from telegram_utils import send_telegram_message
 
-client = UMFutures(key=api_testnet, secret=secret_testnet, base_url="https://testnet.binancefuture.com")
+# client = UMFutures(key=api_testnet, secret=secret_testnet, base_url="https://testnet.binancefuture.com")
 
-# client = UMFutures(key=api, secret=secret)
+client = UMFutures(key=api, secret=secret)
 
 # 0.012 means +1.2%, 0.009 is -0.9% 
 tp = 0.012
@@ -16,7 +16,9 @@ sl = 0.009
 volume = 10  # volume for one order (if its 10 and leverage is 10, then you put 1 usdt to one position)
 leverage = 10
 type = 'ISOLATED'  # type is 'ISOLATED' or 'CROSS'
-qty = 100  # Amount of concurrent opened positions
+qty = 6  # Amount of concurrent opened positions
+
+open_orders = []
 
 # getting your futures balance in USDT
 def get_balance_usdt():
@@ -25,6 +27,19 @@ def get_balance_usdt():
         for elem in response:
             if elem['asset'] == 'USDT':
                 return float(elem['balance'])
+
+    except ClientError as error:
+        print(
+            "Found error. status: {}, error code: {}, error message: {}".format(
+                error.status_code, error.error_code, error.error_message
+            )
+        )
+def get_available_balance_usdt():
+    try:
+        response = client.balance(recvWindow=6000)
+        for elem in response:
+            if elem['asset'] == 'USDT':
+                return float(elem['availableBalance'])
 
     except ClientError as error:
         print(
@@ -117,11 +132,6 @@ def open_order(symbol, side):
     if side == 'buy':
         try:
             resp1 = client.new_order(symbol=symbol, side='BUY', type='LIMIT', quantity=qty, timeInForce='GTC', price=price)
-            order_id = resp1['orderId']
-            # Send telegram message
-            balance = get_balance_usdt()
-            message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nCurrent balance: {balance} USDT"
-            send_telegram_message(message)
             # print log
             print(symbol, side, "placing order")
             print(resp1)
@@ -134,6 +144,12 @@ def open_order(symbol, side):
             resp3 = client.new_order(symbol=symbol, side='SELL', type='TAKE_PROFIT_MARKET', quantity=qty, timeInForce='GTC',
                                      stopPrice=tp_price)
             print(resp3)
+            # Send telegram message
+            order_id = resp1['orderId']
+            balance = get_balance_usdt()
+            availableBalance = get_available_balance_usdt()
+            message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nTP/SL:{tp_price}/{sl_price}\nCurrent balance: {balance} USDT\nAvailable balance: {availableBalance} USDT"
+            send_telegram_message(message)
         except ClientError as error:
             error_message = f"Error placing order for {symbol}: {error.error_message}"
             send_telegram_message(error_message)
@@ -145,12 +161,6 @@ def open_order(symbol, side):
     if side == 'sell':
         try:
             resp1 = client.new_order(symbol=symbol, side='SELL', type='LIMIT', quantity=qty, timeInForce='GTC', price=price)
-            # Send telegram message
-            order_id = resp1['orderId']
-            balance = get_balance_usdt()
-            message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nCurrent balance: {balance} USDT"
-            send_telegram_message(message)
-
             print(symbol, side, "placing order")
             print(resp1)
             sleep(2)
@@ -162,6 +172,12 @@ def open_order(symbol, side):
             resp3 = client.new_order(symbol=symbol, side='BUY', type='TAKE_PROFIT_MARKET', quantity=qty, timeInForce='GTC',
                                      stopPrice=tp_price)
             print(resp3)
+            # Send telegram message
+            order_id = resp1['orderId']
+            balance = get_balance_usdt()
+            availableBalance = get_available_balance_usdt()
+            message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nTP/SL:{tp_price}/{sl_price}\nCurrent balance: {balance} USDT\nAvailable balance: {availableBalance} USDT"
+            send_telegram_message(message)
         except ClientError as error:
             error_message = f"Error placing order for {symbol}: {error.error_message}"
             send_telegram_message(error_message)
@@ -226,7 +242,6 @@ def str_signal(symbol):
         return 'up'
     if rsi.iloc[-1] > 60 and ema.iloc[-1] > kl.Close.iloc[-1] and rsi_k.iloc[-1] > 80 and rsi_k.iloc[-3] > rsi_d.iloc[-3] and rsi_k.iloc[-2] > rsi_d.iloc[-2] and rsi_k.iloc[-1] < rsi_d.iloc[-1]:
         return 'down'
-
     else:
         return 'none'
 
@@ -234,15 +249,12 @@ def str_signal(symbol):
 def rsi_signal(symbol):
     kl = klines(symbol)
     rsi = ta.momentum.RSIIndicator(kl.Close).rsi()
-    ema = ta.trend.ema_indicator(kl.Close, window=200)
     if rsi.iloc[-2] < 30 and rsi.iloc[-1] > 30:
         return 'up'
     if rsi.iloc[-2] > 70 and rsi.iloc[-1] < 70:
         return 'down'
-
     else:
         return 'none'
-
 
 def macd_ema(symbol):
     kl = klines(symbol)
@@ -267,10 +279,20 @@ def ema200_50(symbol):
     else:
         return 'none'
 
+def ema34_89(symbol):
+    kl = klines(symbol)
+    ema89 = ta.trend.ema_indicator(kl.Close, window=89)
+    ema34 = ta.trend.ema_indicator(kl.Close, window=34)
+    if ema34.iloc[-3] < ema89.iloc[-3] and ema34.iloc[-2] < ema89.iloc[-2] and ema34.iloc[-1] > ema89.iloc[-1]:
+        return 'up'
+    if ema34.iloc[-3] > ema89.iloc[-3] and ema34.iloc[-2] > ema89.iloc[-2] and ema34.iloc[-1] < ema89.iloc[-1]:
+        return 'down'
+    else:
+        return 'none'
 
 orders = 0
 symbol = ''
-# getting all symbols from Binace Futures list:
+# getting all symbols from Binance Futures list:
 symbols = get_tickers_usdt()
 
 while True:
@@ -300,7 +322,7 @@ while True:
                 # signal = str_signal(elem)
                 # signal = rsi_signal(elem)
                 # signal = macd_ema(elem)
-                signal = ema200_50(elem)
+                signal = ema34_89(elem)
 
                 # 'up' or 'down' signal, we place orders for symbols that arent in the opened positions and orders
                 # we also dont need USDTUSDC because its 1:1 (dont need to spend money for the commission)
