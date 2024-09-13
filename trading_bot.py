@@ -15,7 +15,7 @@ import threading
 client = UMFutures(key=api, secret=secret)
 
 # 0.012 means +1.2%, 0.009 is -0.9% 
-tp = 0.002
+tp = 0.012
 sl = 0.009
 volume = 10  # volume for one order (if its 10 and leverage is 10, then you put 1 usdt to one position)
 leverage = 10
@@ -149,11 +149,11 @@ def open_order(symbol, side):
                                      stopPrice=tp_price)
             print(resp3)
             # Send telegram message
-            order_id = resp1['orderId']
-            balance = get_balance_usdt()
-            availableBalance = get_available_balance_usdt()
-            message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nTP/SL:{tp_price}/{sl_price}\nCurrent balance: {balance} USDT\nAvailable balance: {availableBalance} USDT"
-            send_telegram_message(message)
+            # order_id = resp1['orderId']
+            # balance = get_balance_usdt()
+            # availableBalance = get_available_balance_usdt()
+            # message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nTP/SL:{tp_price}/{sl_price}\nCurrent balance: {balance} USDT\nAvailable balance: {availableBalance} USDT"
+            # send_telegram_message(message)
         except ClientError as error:
             error_message = f"Error placing order for {symbol}: {error.error_message}"
             send_telegram_message(error_message)
@@ -177,11 +177,11 @@ def open_order(symbol, side):
                                      stopPrice=tp_price)
             print(resp3)
             # Send telegram message
-            order_id = resp1['orderId']
-            balance = get_balance_usdt()
-            availableBalance = get_available_balance_usdt()
-            message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nTP/SL:{tp_price}/{sl_price}\nCurrent balance: {balance} USDT\nAvailable balance: {availableBalance} USDT"
-            send_telegram_message(message)
+            # order_id = resp1['orderId']
+            # balance = get_balance_usdt()
+            # availableBalance = get_available_balance_usdt()
+            # message = f"Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nTP/SL:{tp_price}/{sl_price}\nCurrent balance: {balance} USDT\nAvailable balance: {availableBalance} USDT"
+            # send_telegram_message(message)
         except ClientError as error:
             error_message = f"Error placing order for {symbol}: {error.error_message}"
             send_telegram_message(error_message)
@@ -316,9 +316,22 @@ async def process_order_update(data):
         side = order_update['S']
         status = order_update['X']
         price = order_update['p']
+        stopPrice = order_update['sp']
         executed_qty = order_update['z']
+        original_type = order_update['ot']
         pnl = order_update.get('rp', 0)  # Realized PNL
-        msg = f"Order Update: Symbol: {symbol}, Order ID: {order_id}, Side: {side}, Status: {status}, Price: {price}, Executed Qty: {executed_qty}, PNL: {pnl}"
+        # msg = f"Order Update: Symbol: {symbol}, Order ID: {order_id}, Side: {side}, Status: {status}, Price: {price}, Executed Qty: {executed_qty}, PNL: {pnl}"
+        msg = '',
+        availableBalance = 0,
+        if original_type == 'LIMIT' or original_type == 'TAKE_PROFIT_MARKET' or original_type == 'STOP_MARKET':
+            availableBalance = get_available_balance_usdt()
+        if status == 'NEW' and original_type == 'LIMIT':
+            msg = f'Order ID: {order_id}\nPlaced {side} order {symbol} at {price}\nAvailable Balance: {availableBalance} USDT'
+        if status == 'FILLED':
+            if original_type == 'STOP_MARKET':
+                msg = f'Order ID: {order_id}\nStop loss {symbol} at {stopPrice}\nPNL: {pnl} USDT\nAvailable Balance: {availableBalance} USDT'
+            elif original_type == 'TAKE_PROFIT_MARKET':
+                msg = f'Order ID: {order_id}\nTake profit {symbol} at {stopPrice}\nPNL: {pnl} USDT\nAvailable Balance: {availableBalance} USDT'
         send_telegram_message(msg)
         print(msg)
 
