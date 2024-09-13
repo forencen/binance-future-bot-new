@@ -332,7 +332,8 @@ async def process_order_update(data):
                 msg = f'Order ID: {order_id}\nStop loss {symbol} at {stopPrice}\nPNL: {pnl} USDT\nAvailable Balance: {availableBalance} USDT'
             elif original_type == 'TAKE_PROFIT_MARKET':
                 msg = f'Order ID: {order_id}\nTake profit {symbol} at {stopPrice}\nPNL: {pnl} USDT\nAvailable Balance: {availableBalance} USDT'
-        send_telegram_message(msg)
+        if msg: 
+            send_telegram_message(msg)
         print(msg)
 
 # Function to connect to WebSocket and listen for events
