@@ -14,7 +14,7 @@ from socket_utils.orderListener import listen_for_order_updates
 client = UMFutures(key=api, secret=secret)
 
 # 0.012 means +1.2%, 0.009 is -0.9% 
-tp = 0.0025
+tp = 0.012
 sl = 0.009
 volume = 10  # volume for one order (if its 10 and leverage is 10, then you put 1 usdt to one position)
 leverage = 10
