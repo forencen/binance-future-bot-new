@@ -34,8 +34,8 @@ def set_mode(client, symbol, type):
 # Open new order with the last price, and set TP and SL:
 def open_order(client, symbol, side, volume, tp, sl):
     price = float(client.ticker_price(symbol)['price'])
-    qty_precision = get_qty_precision(symbol)
-    price_precision = get_price_precision(symbol)
+    qty_precision = get_qty_precision(client,symbol)
+    price_precision = get_price_precision(client,symbol)
     qty = round(volume/price, qty_precision)
     if side == 'buy':
         try:
@@ -82,3 +82,45 @@ def open_order(client, symbol, side, volume, tp, sl):
                     error.status_code, error.error_code, error.error_message
                 )
             )
+
+# Your current positions (returns the symbols list):
+def get_pos(client):
+    try:
+        resp = client.get_position_risk()
+        pos = []
+        for elem in resp:
+            if float(elem['positionAmt']) != 0:
+                pos.append(elem['symbol'])
+        return pos
+    except ClientError as error:
+        print(
+            "Found error. status: {}, error code: {}, error message: {}".format(
+                error.status_code, error.error_code, error.error_message
+            )
+        )
+
+def check_orders(client):
+    try:
+        response = client.get_orders(recvWindow=6000)
+        sym = []
+        for elem in response:
+            sym.append(elem['symbol'])
+        return sym
+    except ClientError as error:
+        print(
+            "Found error. status: {}, error code: {}, error message: {}".format(
+                error.status_code, error.error_code, error.error_message
+            )
+        )
+
+# Close open orders for the needed symbol. If one stop order is executed and another one is still there
+def close_open_orders(client, symbol):
+    try:
+        response = client.cancel_open_orders(symbol=symbol, recvWindow=6000)
+        print(response)
+    except ClientError as error:
+        print(
+            "Found error. status: {}, error code: {}, error message: {}".format(
+                error.status_code, error.error_code, error.error_message
+            )
+        )
