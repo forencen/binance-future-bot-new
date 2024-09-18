@@ -52,8 +52,8 @@ if __name__ == "__main__":
             for elem in ord:
                 if not elem in pos:
                     close_open_orders(client, elem)
-
             if len(pos) < qty:
+                total_order = 0
                 for elem in symbols:
                     # Strategies (you can make your own with the TA library):
                     signal = ema34_89(client, elem, '15m')
@@ -65,8 +65,8 @@ if __name__ == "__main__":
                         sleep(1)
                         set_leverage(client,elem, leverage)
                         sleep(1)
-                        print('Placing order for ', elem)
                         open_order(client, elem, 'buy', volume, tp, sl)
+                        total_order = total_order + 1
                         symbol = elem
                         order = True
                         pos = get_pos(client)
@@ -75,14 +75,14 @@ if __name__ == "__main__":
                         sleep(1)
                         sleep(10)
                         # break
-                    if signal == 'down' and elem != 'USDCUSDT' and not elem in pos and not elem in ord and elem != symbol:
+                    elif signal == 'down' and elem != 'USDCUSDT' and not elem in pos and not elem in ord and elem != symbol:
                         print('Found SELL signal for ', elem)
                         set_mode(client, elem, type)
                         sleep(1)
                         set_leverage(client, elem, leverage)
                         sleep(1)
-                        print('Placing order for ', elem)
                         open_order(client, elem, 'sell', volume, tp, sl)
+                        total_order = total_order + 1
                         symbol = elem
                         order = True
                         pos = get_pos(client)
@@ -91,5 +91,9 @@ if __name__ == "__main__":
                         sleep(1)
                         sleep(10)
                         # break
+                    if total_order >= qty:
+                        total_order = 0
+                        break
         print('Waiting 3 min')
         sleep(180)
+
